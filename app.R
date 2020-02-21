@@ -18,7 +18,7 @@ ui <- shinydashboard::dashboardPage(dashboardHeader(title = "Modeling"),
                                                   fluidRow(
                                                     numericInput("clusters","Select Number of Clusters",value = 5),
                                                     plotlyOutput("lasso"),
-                                                    actionButton("runK","Run Kmeans & Hclust Clusterings"),
+                                                    actionButton("runK","Run Kmeans,Hclust,PCA, & Summary Statistics"),
                                                     br(),
                                                     column(6,
                                                     h2("Hierarchical Clusters"),
@@ -31,8 +31,9 @@ ui <- shinydashboard::dashboardPage(dashboardHeader(title = "Modeling"),
                                                     h2("2 Principle Components by Cluster"),
                                                     plotlyOutput("plotPCA")),
                                                     column(6,
-                                                    h2("Augmented PCA Data"),
+                                                    h2("Summary Stats by Cluster"),
                                                     DTOutput("PCA"),
+                                                    h2("Heatmap by Cluster"),
                                                     plotlyOutput("plotGEO"))
                                                   )
                                                 ))
