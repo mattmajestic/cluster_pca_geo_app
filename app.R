@@ -16,29 +16,32 @@ ui <- shinydashboard::dashboardPage(dashboardHeader(title = "Modeling"),
                                         tabItem(tabName = "models",
                                                 fluidPage(
                                                   fluidRow(
-                                                    numericInput("clusters","Select Number of Clusters",value = 5),
-                                                    plotlyOutput("lasso"),
-                                                    actionButton("runK","Run Kmeans,Hclust,PCA, & Summary Statistics"),
+                                                    column(6,numericInput("clusters","Select Number of Clusters",value = 5)),
+                                                    actionButton("runK","Run Analysis")),
+                                                    fluidRow(plotlyOutput("lasso")),
                                                     br(),
+                                                    fluidRow(column(6,
+                                                           h2("Hierarchical Clusters"),
+                                                           plotlyOutput("HieracrchPlot")),
                                                     column(6,
-                                                    h2("Hierarchical Clusters"),
-                                                    plotlyOutput("HieracrchPlot")),
-                                                    column(6,
-                                                    h2("Kmeans Clusters"),
-                                                    plotlyOutput("KmeansPlot")),
+                                                           h2("Kmeans Clusters"),
+                                                           plotlyOutput("KmeansPlot"))),
                                                     br(),
+                                                    fluidRow(column(6,
+                                                           h2("2 Principle Components by Cluster"),
+                                                           plotlyOutput("plotPCA")),
                                                     column(6,
-                                                    h2("2 Principle Components by Cluster"),
-                                                    plotlyOutput("plotPCA")),
-                                                    column(6,
-                                                    h2("Summary Stats by Cluster"),
-                                                    DTOutput("PCA")),
+                                                           h2("Summary Stats by Cluster"),
+                                                           DTOutput("PCA"))),
+                                                  br(),
+                                                  br(),
+                                                  fluidRow(
                                                     h2("Heatmap by Cluster"),
-                                                    plotlyOutput("plotGEO")
+                                                    plotlyOutput("plotGEO"))
                                                   )
                                                 ))
                                       )
-                                    ))
+                                    )
 
 server <- function(input,output,session){
   
@@ -64,10 +67,10 @@ server <- function(input,output,session){
     
     rv$PCA_pivot <- rv$PCA %>% group_by(ClusterH) %>% 
       summarize(count = n(),
-          avgAssault = mean(Assault),
-          avgMurder = mean(Murder),
-          avgRape = mean(Rape),
-          avgPop = mean(UrbanPop)) %>%
+                avgAssault = mean(Assault),
+                avgMurder = mean(Murder),
+                avgRape = mean(Rape),
+                avgPop = mean(UrbanPop)) %>%
       mutate(AssaultperPerson = avgAssault/avgPop)
     output$PCA <- renderDT({datatable(rv$PCA_pivot,rownames = FALSE)})
     output$plotPCA <- renderPlotly({plot_ly(rv$PCA,x=~.fittedPC1,y=~.fittedPC2,color =~ClusterH)})
