@@ -32,9 +32,9 @@ ui <- shinydashboard::dashboardPage(dashboardHeader(title = "Modeling"),
                                                     plotlyOutput("plotPCA")),
                                                     column(6,
                                                     h2("Summary Stats by Cluster"),
-                                                    DTOutput("PCA"),
+                                                    DTOutput("PCA")),
                                                     h2("Heatmap by Cluster"),
-                                                    plotlyOutput("plotGEO"))
+                                                    plotlyOutput("plotGEO")
                                                   )
                                                 ))
                                       )
