@@ -1,5 +1,6 @@
 library(shiny)
 library(shinydashboard)
+library(ggplot2)
 library(plotly)
 library(dplyr)
 library(broom)
@@ -9,7 +10,9 @@ library(tibble)
 
 ui <- shinydashboard::dashboardPage(dashboardHeader(title = "Modeling"),
                                     dashboardSidebar(sidebarMenu(
-                                      menuItem("Build Models",tabName = "models")
+                                      menuItem("Clustering",tabName = "models"),
+                                      menuItem("PCA",tabName = "pca"),
+                                      menuItem("Regressions",tabName = "lms")
                                     )),
                                     dashboardBody(
                                       tabItems(
@@ -18,30 +21,34 @@ ui <- shinydashboard::dashboardPage(dashboardHeader(title = "Modeling"),
                                                   fluidRow(
                                                     column(6,numericInput("clusters","Select Number of Clusters",value = 5)),
                                                     actionButton("runK","Run Analysis")),
-                                                    fluidRow(plotlyOutput("lasso")),
-                                                    br(),
-                                                    fluidRow(column(6,
-                                                           h2("Hierarchical Clusters"),
-                                                           plotlyOutput("HieracrchPlot")),
-                                                    column(6,
-                                                           h2("Kmeans Clusters"),
-                                                           plotlyOutput("KmeansPlot"))),
-                                                    br(),
-                                                    fluidRow(column(6,
-                                                           h2("2 Principle Components by Cluster"),
-                                                           plotlyOutput("plotPCA")),
-                                                    column(6,
-                                                           h2("Summary Stats by Cluster"),
-                                                           DTOutput("PCA"))),
+                                                  fluidRow(plotlyOutput("lasso")),
                                                   br(),
-                                                  br(),
-                                                  fluidRow(
-                                                    h2("Heatmap by Cluster"),
-                                                    plotlyOutput("plotGEO"))
-                                                  )
+                                                  fluidRow(column(6,
+                                                                  h2("Hierarchical Clusters"),
+                                                                  plotlyOutput("HieracrchPlot")),
+                                                           column(6,
+                                                                  h2("Kmeans Clusters"),
+                                                                  plotlyOutput("KmeansPlot"))))),
+                                        tabItem(tabName = "pca",
+                                                fluidRow(column(6,
+                                                                h2("2 Principle Components by Cluster"),
+                                                                plotlyOutput("plotPCA")),
+                                                         column(6,
+                                                                h2("Summary Stats by Cluster"),
+                                                                DTOutput("PCA")))),
+                                        tabItem(tabName = "lms",
+                                                fluidRow(
+                                                  h2("Heatmap by Cluster"),
+                                                  plotlyOutput("plotGEO")),
+                                                fluidRow(h2("Regression Output by Cluster"),
+                                                         plotlyOutput("lm_group"),
+                                                         DTOutput("lm_glance_group")),
+                                                fluidRow(h2("Regression Output for All Data"),
+                                                         plotlyOutput("lm_all"),
+                                                         DTOutput("lm_glance_all"))
                                                 ))
-                                      )
                                     )
+)
 
 server <- function(input,output,session){
   
@@ -61,7 +68,7 @@ server <- function(input,output,session){
     output$KmeansPlot <- renderPlotly({plot_ly(rv$state_crime,x=~Murder, y=~Assault,size =~UrbanPop,color =~ClusterK)})
     fitH <- hclust(dist(rv$state_crime), method = "ward.D", members = NULL)
     rv$state_crime <- rv$state_crime %>% mutate("ClusterH" = cutree(fitH,k = input$clusters))
-    output$HieracrchPlot <- renderPlotly({plot_ly(rv$state_crime,a=~Murder,b =~Assault, c=~UrbanPop,color =~ClusterH,type = "scatterternary")})
+    output$HieracrchPlot <- renderPlotly({plot_ly(rv$state_crime,x=~Murder, y=~Assault,size =~UrbanPop,color =~ClusterH)})
     tmp_PCA <- prcomp(rv$state_crime, scale = TRUE)
     rv$PCA <- augment(tmp_PCA, data = rv$state_crime)
     
@@ -72,7 +79,7 @@ server <- function(input,output,session){
                 avgRape = mean(Rape),
                 avgPop = mean(UrbanPop)) %>%
       mutate(AssaultperPerson = avgAssault/avgPop)
-    output$PCA <- renderDT({datatable(rv$PCA_pivot,rownames = FALSE)})
+    output$PCA <- renderDT({datatable(rv$PCA_pivot,rownames = FALSE,options = list(scrollX = TRUE))})
     output$plotPCA <- renderPlotly({plot_ly(rv$PCA,x=~.fittedPC1,y=~.fittedPC2,color =~ClusterH)})
     g <- list(
       scope = 'usa',
@@ -92,6 +99,27 @@ server <- function(input,output,session){
           title = "Clusters over the States",
           geo = g
         )})
+    
+    tmp_lm_all <- rv$geo_plot %>%
+      do(fit_all = lm(Murder ~ Assault + UrbanPop + Rape, data = .))
+    tmp_coef_all <- tidy(tmp_lm_all,fit_all,conf.int = TRUE)
+    output$lm_all <- renderPlotly({ggplotly(ggplot(tmp_coef_all , aes(estimate, term, color = term)) +
+        geom_point() +
+        geom_errorbarh(aes(xmin = conf.low, xmax = conf.high)))})
+    tmp_glance_all <- glance(tmp_lm_all,fit_all)
+    output$lm_glance_all <- renderDT(tmp_glance_all)
+    
+    
+    tmp_lm_group <- rv$geo_plot %>% dplyr::group_by(ClusterK) %>%
+      do(fit_group = lm(Murder ~ Assault + UrbanPop + Rape, data = .))
+    tmp_coef_group <- tidy(tmp_lm_group,fit_group,conf.int = TRUE)
+    output$lm_group <- renderPlotly({ggplotly(ggplot(tmp_coef_group , aes(estimate, term, color = term)) +
+        geom_point() +
+        geom_errorbarh(aes(xmin = conf.low, xmax = conf.high)) + 
+        facet_grid(cols = vars(ClusterK)))})
+    tmp_glance_group <- glance(tmp_lm_group,fit_group)
+    output$lm_glance_group <- renderDT(tmp_glance_group)
+    
     QC_rv <<- reactiveValuesToList(rv)
   })
   
